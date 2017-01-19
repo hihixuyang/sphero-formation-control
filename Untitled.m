@@ -129,3 +129,7 @@ x = rand(1, 1000);
  x = 1000*rand(1, 1e6);
  tic; sum1 = sum(x); toc;
  tic; sum2 = norm(x,1); toc;
+ 
+ %%
+ 
+ 

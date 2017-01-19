@@ -1,6 +1,6 @@
 clear;
 close all;
-load('jan18test6');
+load('jan18test4');
 %% Load and remove zeros from the data
 
 logCounter = logCounter - 2;

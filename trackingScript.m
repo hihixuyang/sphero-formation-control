@@ -173,6 +173,7 @@ threshold = threshold - 0.01;
 % associate hardware with tracking
 success = false;
 while ~success
+    disp('Associate Spheros...');
     [association, success] = associateSpheros(spheros, centers, obj.cam);
     if ~success
         disp('Could not associate bluetooth object with spheros')
@@ -192,9 +193,7 @@ disp('Starting Tracking...')
 
 while true
     tic
-    %acquire a frame
-    frame = nextFrame(obj.cam, isWebcam); %true if cam, false if video
-    %images is an array of cells
+    frame = nextFrame(obj.cam, isWebcam); 
     t_capture = toc;
     
     tic
@@ -220,35 +219,28 @@ while true
         %the second option is the one described in the report. Here the main
         %principle relies on extracting bright objects of the correct size
         %finding Spheros in an image
-        [centroids, numberOfDetections, bboxes, mask] = findSpheroBB(frame, threshold);
+        [centroids, mask] = findSpheroCentroid(frame, threshold);
     end
+    numberOfDetections = size(centroids, 1);
     
-    %error messages if the detections do not comply with the number of robots
-    if size(centroids, 1) ~= N || size(bboxes, 1) ~= N
-        disp('Dimension error in the detection')
-        if size(centroids, 1) > N && size(bboxes, 1) > N
+    %error messages if the detections do not comply with the number of robots    
+    if numberOfDetections == 0
+        disp('No agents detected');
+    else
+        if numberOfDetections > N
             disp('Too many detections')
         else
-            if size(centroids, 1) < N && size(bboxes, 1) < N
+            if numberOfDetections < N
                 disp('Not enough detections')
             end
         end
     end
-    
-    %store old values
-    lastTracks = tracks;
     t_find = toc;
     
     tic
     %predict the locations of the robots
     for i = 1:length(tracks)
-        bbox = tracks(i).bbox;
-        %actual prediction
-        predictedCentroid = predict(tracks(i).kalmanFilter);
-        % Shift the bounding box so that its center is at
-        % the predicted location.
-        predictedCentroid = (predictedCentroid - double(bbox(3:4))/ 2);
-        tracks(i).bbox = [predictedCentroid, bbox(3:4)];
+        predictedCentroid = predict(tracks(i).kalmanFilter);        
     end
     t_predict = toc;
     
@@ -263,14 +255,12 @@ while true
         trackIndex = matches(i, 1);
         detectionIndex = matches(i, 2);
         centroid = centroids(detectionIndex, :);
-        bbox = bboxes(detectionIndex, :);
         
         %correct the prediction with the measurement
         correct(tracks(trackIndex).kalmanFilter, centroid);
         
         %replace prediction with measurement
-        tracks(trackIndex).bbox = bbox;
-        tracks(trackIndex).lastCentroid = tracks(trackIndex).centroid;
+        %tracks(trackIndex).lastCentroid = tracks(trackIndex).centroid;
         tracks(trackIndex).centroid = centroid;
         
         % Update track's age.
@@ -279,58 +269,14 @@ while true
         % Update visibility.
         tracks(trackIndex).totalVisibleCount = tracks(trackIndex).totalVisibleCount + 1;
         tracks(trackIndex).consecutiveInvisibleCount = 0;
-        
-        %!!TODO: check the folowing lines of code
-        %get the speed of the detected robots to use for referencetracking
-        %         oldControlSpeed(trackIndex) = toSpeed(tracks(trackIndex).centroid,...
-        %             tracks(trackIndex).lastCentroid, delta_t);
-        %
-        %!!!convert from px/sec --> m/s --> 0..1
-        %oldControlSpeed(trackIndex) = oldControlSpeed(trackIndex) * meterPerPixel * 0.5;
-        
+                
     end
     t_update = toc;
     
     tic;
     %Display the results of detection
     if doDisplay
-        %Making a uint8 RGB-image out of the bw-image. The Video-Player does
-        %not allow changing the size (color channels), during runtime
-        mask = uint16(repmat(mask, [1, 1, 3])) .* 255;
-        frame = im2uint8(frame);
-        minVisibleCount = 8;
-        if ~isempty(tracks)
-            %exclude young detectins to avoid noise
-            reliableTrackIndexes = [tracks(:).totalVisibleCount] > minVisibleCount;
-            reliableTracks = tracks(reliableTrackIndexes);
-            
-            %actual displaying
-            if ~isempty(reliableTracks)
-                reliableBboxes = cat(1, reliableTracks.bbox);
-                
-                ids = int32([reliableTracks(:).id]);
-                
-                % Create labels for objects indicating the ones for
-                % which we display the predicted rather than the actual
-                % location.
-                labels = cellstr(int2str(ids'));
-                predictedTrackIndexes = ...
-                    [reliableTracks(:).consecutiveInvisibleCount] > 0;
-                isPredicted = cell(size(labels));
-                isPredicted(predictedTrackIndexes) = {' predicted'};
-                labels = strcat(labels, isPredicted);
-                
-                %Draw the objects in the frames
-                frame = insertObjectAnnotation(frame, 'rectangle', reliableBboxes, labels);
-                
-                %Draw objects on mask
-                mask = insertObjectAnnotation(mask, 'rectangle', reliableBboxes, labels);
-            end
-            
-            %Display mask and frame in seperate windows
-            obj.maskPlayer.step(mask);
-            obj.videoPlayer.step(frame);
-        end
+        image(frame);
     end
     t_display = toc;
     
