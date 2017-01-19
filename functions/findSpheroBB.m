@@ -46,8 +46,13 @@ grayImage = rgb2gray(frame);
 % % EdgeThreshold 1 = strict, 0 = less strict
 % % Sensitivity 1 = more sensible, .85 default value
 
+%% Adaptive Thresholding
+%binarImage = imbinarize(grayImage, 'adaptive', 'Sensitivity', threshold);
+
 %% Standard Thresholding
+
 binarImage = imbinarize(grayImage, threshold);
+
 %imwrite(bw, 'bw.png')
 % figure(2)
 % imshow(bw1);
