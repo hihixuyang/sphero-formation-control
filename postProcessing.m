@@ -1,6 +1,6 @@
 clear;
 close all;
-load('jan19test1');
+load('jan20test2');
 %% Load and remove zeros from the data
 
 logCounter = logCounter - 2;
@@ -9,10 +9,10 @@ logCounter = logCounter - 2;
 logImages = circshift(logImages, -1);
 logNumDetections = circshift(logNumDetections, -1);
 logPosition = circshift(logPosition, -1);
-logFormationError = circshift(logFormationError, -1);
-logHeading = circshift(logHeading, -1);
+logAgentError = circshift(logAgentError, -1);
+logControlAngle = circshift(logControlAngle, -1);
 logDistance = circshift(logDistance, -1);
-logAngle = circshift(logAngle, -1);
+%logAngle = circshift(logAngle, -1);
 logPhi = circshift(logPhi, -1);
 logPsi = circshift(logPsi, -1);
 logphi = circshift(logphi, -1);
@@ -20,18 +20,18 @@ logpsi = circshift(logpsi, -1);
 logdVadP = circshift(logdVadP, -1);
 logdVodP = circshift(logdVodP, -1);
 logControlSpeed = circshift(logControlSpeed, -1);
-logProportional = circshift(logProportional, -1);
-logIntegral = circshift(logIntegral, -1);
-logDerivative = circshift(logDerivative, -1);
+logPSpeed = circshift(logPSpeed, -1);
+logISpeed = circshift(logISpeed, -1);
+logDSpeed = circshift(logDSpeed, -1);
 logTiming = circshift(logTiming, -1);
 
 logImages = logImages(1:logCounter, :);
 logNumDetections = logNumDetections(1:logCounter, :);
 logPosition = logPosition(1:logCounter, :, :);
-logFormationError = logFormationError(1:logCounter, :, :);
-logHeading = logHeading(1:logCounter, :);
+logAgentError = logAgentError(1:logCounter, :, :);
+logControlAngle = logControlAngle(1:logCounter, :);
 logDistance = logDistance(1:logCounter, :, :);
-logAngle = logAngle(1:logCounter, :);
+%logAngle = logAngle(1:logCounter, :);
 logPhi = logPhi(1:logCounter, :, :);
 logPsi = logPsi(1:logCounter, :, :);
 logphi = logphi(1:logCounter, :);
@@ -39,9 +39,9 @@ logpsi = logpsi(1:logCounter, :);%distance error
 logdVadP = logdVadP( 1:logCounter, :, :);
 logdVodP = logdVodP( 1:logCounter, :, :);
 logControlSpeed = logControlSpeed(1:logCounter, :, :);
-logProportional = logProportional(1:logCounter, :, :);
-logIntegral = logIntegral(1:logCounter, :,  :);
-logDerivative = logDerivative(1:logCounter, :, :);
+logPSpeed = logPSpeed(1:logCounter, :, :);
+logISpeed = logISpeed(1:logCounter, :,  :);
+logDSpeed = logDSpeed(1:logCounter, :, :);
 logTiming = logTiming(1:logCounter, :);
 
 logTiming(:, 12) = sum(logTiming, 2); %delta_t for each step
@@ -63,12 +63,12 @@ ux2 = logControlSpeed(:, 1, 2);
 uy2 = logControlSpeed(:, 2, 2);
 u2 = ux2.^2 + uy2.^2;
 
-ex1 = logFormationError(:, 1, 1);
-ey1 = logFormationError(:, 2, 1);
+ex1 = logAgentError(:, 1, 1);
+ey1 = logAgentError(:, 2, 1);
 e1 = ex1.^2 + ey1.^2;
 
-ex2 = logFormationError(:, 1, 2);
-ey2 = logFormationError(:, 2, 2);
+ex2 = logAgentError(:, 1, 2);
+ey2 = logAgentError(:, 2, 2);
 e2 = ex2.^2 + ey2.^2;
 
 de1 = logpsi(:, 1);
@@ -100,8 +100,8 @@ title(ax4, 'agent2');
 % %set(ax2,'Ydir','reverse')
 % 
 % %(:, 1, 1) first coordinate for first agent
-% % plot(ax1, duration , logProportional(:, 1, 1), 'g', duration, logIntegral(:, 1, 1), 'r',...
-% %  duration, logDerivative(:, 1, 1) ,'b', duration, logControlSpeed(:, 1, 1), 'k');
+% % plot(ax1, duration , logPSpeed(:, 1, 1), 'g', duration, logISpeed(:, 1, 1), 'r',...
+% %  duration, logDSpeed(:, 1, 1) ,'b', duration, logControlSpeed(:, 1, 1), 'k');
 % % title(ax1, 'PID Tunning')
 % % xlabel(ax1, duration)
 % % legend('P','I', 'D', 'control');
@@ -127,9 +127,9 @@ title(ax4, 'agent2');
 figure('Name','position errors','NumberTitle','off')
 ax5 = subplot(2,1,1);
 ax6 = subplot(2,1,2);
-plot(ax5, duration, logFormationError(:,1, 1), duration, logFormationError(:,1, 2));
+plot(ax5, duration, logAgentError(:,1, 1), duration, logAgentError(:,1, 2));
 title(ax5, 'x error')
-plot(ax6, duration, logFormationError(:, 2, 1), duration, logFormationError(:,2, 2));
+plot(ax6, duration, logAgentError(:, 2, 1), duration, logAgentError(:,2, 2));
 title(ax6, 'y error')
 %%
 figure('Name','agent position and target','NumberTitle','off')

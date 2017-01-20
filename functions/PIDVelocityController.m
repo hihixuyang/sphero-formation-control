@@ -1,5 +1,5 @@
 function [output, proportionalout, integralout, derivativeout ] = ...
-    PIDController( error, dt, PIDGains)
+    PIDVelocityController( error, dt, PIDGains)
 %controller for the multi agent formation control. PID. Inputs should
 %controllerOutput is the speed for each Sphero
 persistent previousError integral ;

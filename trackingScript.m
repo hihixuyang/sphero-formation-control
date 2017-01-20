@@ -37,7 +37,7 @@ switch N
     case 1
         positionRef = [1 1]'/ meterPerPixel;
     case 2
-        positionRef = [[1 1]; [0.5 0.5]]'/ meterPerPixel;
+        positionRef = [[1 1]; [0.9 0.9]]'/ meterPerPixel;
     case 3
         positionRef = [[0 0]; [0.5 0.5]; [1 1]]'/ meterPerPixel;
     case 4
@@ -52,11 +52,11 @@ angleRef(angleRef == 0) = NaN;
 obstacles =  [ ];%(0.75 0.75)]'; %(1.25 1.25)]'./ meterPerPixel;
 M = size(obstacles, 2);
 
-%speed reference tracking controller gains: Kp, Ki, Kd
-speedKp = 0.005; speedKi = 0; speedKd = 0;
-speed_PID_gains = [speedKp speedKi speedKd];
+%velocity reference tracking controller gains: Kp, Ki, Kd
+velocityKp = 0.005; velocityKi = 0; velocityKd = 0;
+velocity_PID_gains = [velocityKp velocityKi velocityKd];
 
-angleKp = 0.05; angleKi = 0; angleKd = 0;
+angleKp = 0.05; angleKi = 0; angleKd = 0.001;
 angle_PID_gains =[angleKp angleKi angleKd];
 
 %initial value for threshold, smaller means more sensitive
@@ -124,7 +124,7 @@ disp('Initializing logging variables...')
 % 4: time needed to assign current detections to existing tracks
 % 5: time needed to update the tracks with the current positions
 % 6: time needed to display the detections if enabled
-% 7: time needed to calculate the reference speed value for each Sphero
+% 7: time needed to calculate the reference velocity value for each Sphero
 % using the formation control law
 % 8: time needed to calculate actual direction
 % 9: time needed to evaluate the output of the "local" controller
@@ -142,22 +142,30 @@ logCounter = 1;
 logImages = cell(MAX_LOG, 1);
 logNumDetections = zeros(MAX_LOG, 1);
 logPosition = zeros(MAX_LOG, 2, N);
-logAgentError = zeros(MAX_LOG, 2, N);
-logControlAngle = zeros(MAX_LOG, N);
-logDesiredDirection = zeros(MAX_LOG, N);
-logActualDirection = zeros(MAX_LOG, N);
 logDistance = zeros(MAX_LOG, N, N+M);
 logAgentAngle = zeros(MAX_LOG, N) ;
+
+logAgentError = zeros(MAX_LOG, 2, N);
 logPhi = zeros(MAX_LOG, 2, N);
 logPsi = zeros(MAX_LOG, 2, N) ;
 logphi = zeros(MAX_LOG, N);
 logpsi = zeros(MAX_LOG, N);
 logdVadP = zeros( MAX_LOG, 2, N);
 logdVodP = zeros( MAX_LOG, 2, N);
-logControlSpeed = zeros(MAX_LOG, 2, N);
-logPSpeed = zeros(MAX_LOG, 2, N);
-logISpeed = zeros(MAX_LOG, 2,  N);
-logDSpeed = zeros(MAX_LOG, 2, N);
+
+logControlVelocity = zeros(MAX_LOG, 2, N);
+logPVelocity = zeros(MAX_LOG, 2, N);
+logIVelocity = zeros(MAX_LOG, 2, N);
+logDVelocity = zeros(MAX_LOG, 2, N);
+logControlSpeed = zeros(MAX_LOG, N);
+
+logControlAngle = zeros(MAX_LOG, N);
+logDesiredDirection = zeros(MAX_LOG, N);
+logActualDirection = zeros(MAX_LOG, N);
+logPAngleOut = zeros(MAX_LOG, N);
+logIAngleOut = zeros(MAX_LOG, N);
+logDAngleOut = zeros(MAX_LOG, N);
+
 logTiming = zeros(MAX_LOG, 11);
 
 %% Initial detection and association
@@ -293,23 +301,24 @@ while true
     desiredDirection = atan2d (agentError(2,:), agentError(1, :));
     actualDirection = atan2d (displacement(2,:), displacement(1,:));
     agentAngleError = desiredDirection - actualDirection;
-    [controlAngle, pAngleOut, iAngleOut, dAngleOut] = PIDController(...
+    [controlAngle, pAngleOut, iAngleOut, dAngleOut] = PIDAngleController(...
         agentAngleError, delta_t, angle_PID_gains);
     controlAngle = controlAngle(1, :);
     %controlAngle = arrayfun(@(angle) (wrapTo360(angle)), controlAngle);
     t_direction = toc;
     
     tic
-    %PID Controller used to track the reference speed input
-    [controlSpeed, pSpeedOut, iSpeedOut, dSpeedOut] = PIDController(...
-        agentError, delta_t, speed_PID_gains);
+    %PID Controller used to track the reference velocity input
+    [controlVelocity, pVelocityOut, iVelocityOut, dVelocityOut] =...
+        PIDVelocityController(agentError, delta_t, velocity_PID_gains);
     t_controller = toc;
     %% communication
     tic
     %send the roll command
+    controlSpeed = hypot(controlVelocity(1, :), controlVelocity(2, :));
     if logCounter > 2
         for i = 1:N
-            tracks(i).Sphero.Roll(norm(controlSpeed(:, i)), controlAngle(i), 'normal');
+            tracks(i).Sphero.Roll(controlSpeed(i), controlAngle(i), 'normal');
         end
     end
     t_comm = toc;
@@ -317,25 +326,33 @@ while true
     tic
     logCounter = logCounter + 1;
     
-    %logImages{mod(logCounter, MAX_LOG)} = frame;
+%     logImages{mod(logCounter, MAX_LOG)} = frame;
     logNumDetections(mod(logCounter, MAX_LOG)) = numberOfDetections;
     logPosition( mod(logCounter, MAX_LOG), :, :) = spheroPos;
-    logAgentError(mod(logCounter, MAX_LOG), :, :) = agentError;
     logDistance(mod(logCounter, MAX_LOG), :, :) = elementDistance;
-    logAgentAngle(mod(logCounter, MAX_LOG), :) = agentAngle;
-    logPhi(mod(logCounter, MAX_LOG), :, :) = Phi;
+    logAgentAngle(mod(logCounter, MAX_LOG), :) = agentAngle;    
+    
+    logAgentError(mod(logCounter, MAX_LOG), :, :) = agentError;
+    logPhi(mod(logCounter, MAX_LOG), :, :) = Phi;    
     logPsi(mod(logCounter, MAX_LOG), :, :) = Psi;
     logphi(mod(logCounter, MAX_LOG), :) = phi;
     logpsi(mod(logCounter, MAX_LOG), :) = psi';
     logdVadP(mod(logCounter, MAX_LOG), :, :) = dVadP;
     logdVodP(mod(logCounter, MAX_LOG), :, :) = dVodP;
-    logControlAngle(mod(logCounter, MAX_LOG), :) = controlAngle();
+
+    logPVelocity(mod(logCounter, MAX_LOG), :, :) = pVelocityOut;
+    logIVelocity(mod(logCounter, MAX_LOG), :, :) = iVelocityOut;
+    logDVelocity(mod(logCounter, MAX_LOG), :, :) = dVelocityOut; 
+    logControlVelocity(mod(logCounter, MAX_LOG), :, :) = controlVelocity;
+    logControlSpeed(mod(logCounter, MAX_LOG), :) = controlSpeed;
+    
     logDesiredDirection(mod(logCounter, MAX_LOG), :) = desiredDirection;
     logActualDirection(mod(logCounter, MAX_LOG), :) = actualDirection;
-    logControlSpeed(mod(logCounter, MAX_LOG), :, :) = controlSpeed;
-    logPSpeed(mod(logCounter, MAX_LOG), :, :) = pSpeedOut;
-    logISpeed(mod(logCounter, MAX_LOG), :, :) = iSpeedOut;
-    logDSpeed(mod(logCounter, MAX_LOG), :, :) = dSpeedOut;
+    logPAngleOut(mod(logCounter, MAX_LOG), :) = pAngleOut;
+    logIAngleOut(mod(logCounter, MAX_LOG), :) = iAngleOut;
+    logDAngleOut(mod(logCounter, MAX_LOG), :) = dAngleOut;
+    logControlAngle(mod(logCounter, MAX_LOG), :) = controlAngle();
+    
     logTiming(mod(logCounter, MAX_LOG)-1, :) = timings;
     
     t_logging = toc;
