@@ -1,6 +1,6 @@
 clear;
 close all;
-load('jan20test2');
+load('jan20test6');
 %% Load and remove zeros from the data
 
 logCounter = logCounter - 2;
@@ -9,41 +9,60 @@ logCounter = logCounter - 2;
 logImages = circshift(logImages, -1);
 logNumDetections = circshift(logNumDetections, -1);
 logPosition = circshift(logPosition, -1);
-logAgentError = circshift(logAgentError, -1);
-logControlAngle = circshift(logControlAngle, -1);
 logDistance = circshift(logDistance, -1);
-%logAngle = circshift(logAngle, -1);
+logAgentAngle = circshift(logAgentAngle, -1);
+
+logAgentError = circshift(logAgentError, -1);
 logPhi = circshift(logPhi, -1);
 logPsi = circshift(logPsi, -1);
 logphi = circshift(logphi, -1);
 logpsi = circshift(logpsi, -1);
 logdVadP = circshift(logdVadP, -1);
 logdVodP = circshift(logdVodP, -1);
-logControlSpeed = circshift(logControlSpeed, -1);
-logPSpeed = circshift(logPSpeed, -1);
-logISpeed = circshift(logISpeed, -1);
-logDSpeed = circshift(logDSpeed, -1);
-logTiming = circshift(logTiming, -1);
 
+logPVelocity = circshift(logPVelocity, -1);
+logIVelocity = circshift(logIVelocity, -1);
+logDVelocity = circshift(logDVelocity, -1);
+logControlVelocity = circshift(logControlVelocity, -1);
+logControlSpeed = circshift(logControlSpeed, -1);
+
+logDesiredDirection = circshift(logDesiredDirection, -1);
+logActualDirection = circshift(logActualDirection, -1);
+logPAngleOut = circshift(logPAngleOut, -1);
+logIAngleOut = circshift(logIAngleOut, -1);
+logDAngleOut = circshift(logDAngleOut, -1);
+logControlAngle = circshift(logControlAngle, -1);
+
+logTiming = circshift(logTiming, -1);
+%%
 logImages = logImages(1:logCounter, :);
 logNumDetections = logNumDetections(1:logCounter, :);
 logPosition = logPosition(1:logCounter, :, :);
-logAgentError = logAgentError(1:logCounter, :, :);
-logControlAngle = logControlAngle(1:logCounter, :);
 logDistance = logDistance(1:logCounter, :, :);
-%logAngle = logAngle(1:logCounter, :);
+logAgentAngle = logAgentAngle(1:logCounter, :);
+
+logAgentError = logAgentError(1:logCounter, :, :);
 logPhi = logPhi(1:logCounter, :, :);
 logPsi = logPsi(1:logCounter, :, :);
 logphi = logphi(1:logCounter, :);
 logpsi = logpsi(1:logCounter, :);%distance error
 logdVadP = logdVadP( 1:logCounter, :, :);
 logdVodP = logdVodP( 1:logCounter, :, :);
-logControlSpeed = logControlSpeed(1:logCounter, :, :);
-logPSpeed = logPSpeed(1:logCounter, :, :);
-logISpeed = logISpeed(1:logCounter, :,  :);
-logDSpeed = logDSpeed(1:logCounter, :, :);
-logTiming = logTiming(1:logCounter, :);
 
+logPVelocity = logPVelocity(1:logCounter, :, :);
+logIVelocity = logIVelocity(1:logCounter, :, :);
+logDVelocity = logDVelocity(1:logCounter, :, :);
+logControlVelocity = logControlVelocity(1:logCounter, :, :);
+logControlSpeed = logControlSpeed(1:logCounter, :);
+
+logDesiredDirection = logDesiredDirection(1:logCounter, :);
+logActualDirection = logActualDirection(1:logCounter, :);
+logPAngleOut = logPAngleOut(1:logCounter, :);
+logIAngleOut = logIAngleOut(1:logCounter, :);
+logDAngleOut = logDAngleOut(1:logCounter, :);
+logControlAngle = logControlAngle(1:logCounter, :);
+
+logTiming = logTiming(1:logCounter, :);
 logTiming(:, 12) = sum(logTiming, 2); %delta_t for each step
 
 duration = cumsum(logTiming(:, 12));
@@ -55,13 +74,9 @@ y1 = logPosition(:, 2, 1);
 x2 = logPosition(:, 1, 2);
 y2 = logPosition(:, 2, 2);
 
-ux1 = logControlSpeed(:, 1, 1);
-uy1 = logControlSpeed(:, 2, 1);
-u1 = ux1.^2 + uy1.^2;
+u1 = logControlSpeed(:, 1);
 
-ux2 = logControlSpeed(:, 1, 2);
-uy2 = logControlSpeed(:, 2, 2);
-u2 = ux2.^2 + uy2.^2;
+u2 = logControlSpeed(:, 2);
 
 ex1 = logAgentError(:, 1, 1);
 ey1 = logAgentError(:, 2, 1);
@@ -71,9 +86,18 @@ ex2 = logAgentError(:, 1, 2);
 ey2 = logAgentError(:, 2, 2);
 e2 = ex2.^2 + ey2.^2;
 
+desiredDir1 = logDesiredDirection(:, 1);
+desiredDir2 = logDesiredDirection(:, 2);
+
+actualDir1 = logActualDirection(:, 1);
+actualDir2 = logActualDirection(:, 2);
+
+controlAngle1 = logControlAngle(:, 1);
+controlAngle2 = logControlAngle(:, 2);
+
 de1 = logpsi(:, 1);
 de2 = logpsi(:, 2);
-
+%%
 %figure(1);
 figure('Name','control effort','NumberTitle','off')
 ax1 = subplot(2,1,1);
@@ -152,3 +176,13 @@ plot(ax7, duration, de1);
 title(ax7, 'agent 1 distance error');
 plot(ax8, duration, de2);
 title(ax8, 'agent 2 distance error');
+%%
+figure('Name','angles','NumberTitle','off')
+ax9 = subplot(2,1,1);
+ax10 = subplot(2,1,2);
+plot(ax9, duration, desiredDir1,duration,actualDir1,duration, controlAngle1);
+title(ax9,'agent1');
+legend('desired angle','actual angle', 'control angle')
+plot(ax10, duration, desiredDir2,duration,actualDir2,duration, controlAngle2);
+title(ax10, 'agent2');
+legend('desired angle','actual angle', 'control angle')

@@ -56,7 +56,7 @@ M = size(obstacles, 2);
 velocityKp = 0.003; velocityKi = 0; velocityKd = 0;
 velocity_PID_gains = [velocityKp velocityKi velocityKd];
 
-angleKp = 0.06; angleKi = 0; angleKd = 0.00\0;
+angleKp = 0.6; angleKi = 0; angleKd = 0.000;
 angle_PID_gains =[angleKp angleKi angleKd];
 
 %initial value for threshold, smaller means more sensitive
@@ -303,7 +303,6 @@ while true
     agentAngleError = desiredDirection - actualDirection;
     [controlAngle, pAngleOut, iAngleOut, dAngleOut] = PIDAngleController(...
         agentAngleError, delta_t, angle_PID_gains);
-    controlAngle = controlAngle(1, :);
     %controlAngle = arrayfun(@(angle) (wrapTo360(angle)), controlAngle);
     t_direction = toc;
     
