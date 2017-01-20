@@ -1,6 +1,6 @@
 clear;
 close all;
-load('jan18test4');
+load('jan19test1');
 %% Load and remove zeros from the data
 
 logCounter = logCounter - 2;
@@ -140,8 +140,9 @@ ylabel('y')
 legend('agent1','', '', 'agent 2')
 title ('agent position and target');
 axis([0, 1200, 0, 1600]);
-set(gca, 'YAxisLocation','right');
-view(90,90)
+set(gca, 'XAxisLocation','top');
+set(gca,'YDir','reverse');
+%view(90,90)
 
 %%
 figure(5)

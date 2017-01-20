@@ -52,7 +52,7 @@ for i = 1:N
         j = N;
     end
     
-    angle(i)  = anglePythagora( d(k,i), d(k,j), d(j,i));
+    angle(i)  = anglePythagora(d(k,i), d(k,j), d(j,i));
     
     Phi(:, i) = angleErrorGradient( angle(i), angleRef(i),...
         elementPos(:,i), elementPos(:,k), elementPos(:,j)); 

@@ -37,7 +37,7 @@ switch N
     case 1
         positionRef = [1 1]'/ meterPerPixel;
     case 2
-        positionRef = [[1 1]; [0.5 0.5]]'/ meterPerPixel;
+        positionRef = [[1 1]; [0.9 0.9]]'/ meterPerPixel;
     case 3
         positionRef = [[0 0]; [0.5 0.5]; [1 1]]'/ meterPerPixel;
     case 4
@@ -53,11 +53,10 @@ obstacles =  [ ];%(0.75 0.75)]'; %(1.25 1.25)]'./ meterPerPixel;
 M = size(obstacles, 2);
 
 %speed reference tracking controller gains: Kp, Ki, Kd
-speedKp = 0.005; speedKi = 0; speedKd = 0;
-speed_PID_gains = [speedKp speedKi speedKd];
+Kp = 0.003; Ki = 0; Kd = 0;
+PIDgains = [Kp Ki Kd];
 
-angleKp = 0.05; angleKi = 0; angleKd = 0;
-angle_PID_gains =[angleKp angleKi angleKd];
+
 
 %initial value for threshold, smaller means more sensitive
 threshold = .67;
@@ -143,9 +142,9 @@ logImages = cell(MAX_LOG, 1);
 logNumDetections = zeros(MAX_LOG, 1);
 logPosition = zeros(MAX_LOG, 2, N);
 logAgentError = zeros(MAX_LOG, 2, N);
-logControlAngle = zeros(MAX_LOG, N);
-logDesiredDirection = zeros(MAX_LOG, N);
-logActualDirection = zeros(MAX_LOG, N);
+logHeading = zeros(MAX_LOG, N);
+logDesiredAngle = zeros(MAX_LOG, N);
+logSpheroAngle = zeros(MAX_LOG, N);
 logDistance = zeros(MAX_LOG, N, N+M);
 logAgentAngle = zeros(MAX_LOG, N) ;
 logPhi = zeros(MAX_LOG, 2, N);
@@ -155,9 +154,9 @@ logpsi = zeros(MAX_LOG, N);
 logdVadP = zeros( MAX_LOG, 2, N);
 logdVodP = zeros( MAX_LOG, 2, N);
 logControlSpeed = zeros(MAX_LOG, 2, N);
-logPSpeed = zeros(MAX_LOG, 2, N);
-logISpeed = zeros(MAX_LOG, 2,  N);
-logDSpeed = zeros(MAX_LOG, 2, N);
+logProportional = zeros(MAX_LOG, 2, N);
+logIntegral = zeros(MAX_LOG, 2,  N);
+logDerivative = zeros(MAX_LOG, 2, N);
 logTiming = zeros(MAX_LOG, 11);
 
 %% Initial detection and association
@@ -295,7 +294,7 @@ while true
     agentAngleError = desiredDirection - actualDirection;
     [controlAngle, pAngleOut, iAngleOut, dAngleOut] = PIDController(...
         agentAngleError, delta_t, angle_PID_gains);
-    controlAngle = controlAngle(1, :);
+    
     %controlAngle = arrayfun(@(angle) (wrapTo360(angle)), controlAngle);
     t_direction = toc;
     
@@ -329,13 +328,13 @@ while true
     logpsi(mod(logCounter, MAX_LOG), :) = psi';
     logdVadP(mod(logCounter, MAX_LOG), :, :) = dVadP;
     logdVodP(mod(logCounter, MAX_LOG), :, :) = dVodP;
-    logControlAngle(mod(logCounter, MAX_LOG), :) = controlAngle();
-    logDesiredDirection(mod(logCounter, MAX_LOG), :) = desiredDirection;
-    logActualDirection(mod(logCounter, MAX_LOG), :) = actualDirection;
+    logHeading(mod(logCounter, MAX_LOG), :) = controlAngle;
+    logDesiredAngle(mod(logCounter, MAX_LOG), :) = desiredDirection;
+    logSpheroAngle(mod(logCounter, MAX_LOG), :) = actualDirection;
     logControlSpeed(mod(logCounter, MAX_LOG), :, :) = controlSpeed;
-    logPSpeed(mod(logCounter, MAX_LOG), :, :) = pSpeedOut;
-    logISpeed(mod(logCounter, MAX_LOG), :, :) = iSpeedOut;
-    logDSpeed(mod(logCounter, MAX_LOG), :, :) = dSpeedOut;
+    logProportional(mod(logCounter, MAX_LOG), :, :) = pSpeedOut;
+    logIntegral(mod(logCounter, MAX_LOG), :, :) = iSpeedOut;
+    logDerivative(mod(logCounter, MAX_LOG), :, :) = derivative;
     logTiming(mod(logCounter, MAX_LOG)-1, :) = timings;
     
     t_logging = toc;

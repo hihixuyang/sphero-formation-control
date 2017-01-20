@@ -18,9 +18,8 @@ yi = iPosition(2);
 yk = kPosition(2);
 yj = jPosition(2);
 
-S = (xi-xk)*(yj-yk)-(yi-yk)*(xj-xk);
+angleError = (angle - angleRef)*signSi(iPosition, kPosition, jPosition);
 
-angleError = (angle - angleRef)*sign(S);
 dki = norm(iPosition - kPosition);
 Phi = [-(yi-yk); (xi-xk)]*angleError/dki^2;
 
