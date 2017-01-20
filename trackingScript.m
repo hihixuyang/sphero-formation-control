@@ -53,10 +53,10 @@ obstacles =  [ ];%(0.75 0.75)]'; %(1.25 1.25)]'./ meterPerPixel;
 M = size(obstacles, 2);
 
 %velocity reference tracking controller gains: Kp, Ki, Kd
-velocityKp = 0.005; velocityKi = 0; velocityKd = 0;
+velocityKp = 0.003; velocityKi = 0; velocityKd = 0;
 velocity_PID_gains = [velocityKp velocityKi velocityKd];
 
-angleKp = 0.05; angleKi = 0; angleKd = 0.001;
+angleKp = 0.06; angleKi = 0; angleKd = 0.00\0;
 angle_PID_gains =[angleKp angleKi angleKd];
 
 %initial value for threshold, smaller means more sensitive
