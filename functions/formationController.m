@@ -1,11 +1,28 @@
-function [formationError, d, angle, Phi, Psi, dVadP, dVodP, phi, psi] =...
+function [formationControlOutput, d, angle, Phi, Psi, dVadP, dVodP, phi, psi] =...
     formationController(spheroPos, obstaclePos, positionRef, angleRef, r, R,...
     formationGains, doOrientation)
 %formationController is used to calculate the speed values according to the
 %applied control law.
 %INPUTS:
-%   -positions: current positions of the agents [2*N]
-%   -obstacles: positions of obstacles [2*M]
+%   -spheroPos: current positions of the agents [2*N]
+%   -obstaclePos: positions of obstacles [2*M]
+%   -positionRef: position reference for agents [2*N]
+%   -angleRef: angle referenc [1*N]
+%   -r: detectiom radius
+%   -R: avoidance radius
+%   -formationGains[k_a, k_v, k_o]
+%   -doOrientation :boolean, if true, than orientation control activated
+%OUTPUT:
+%   -formationControlOutput [2*N]
+%   -d: distance between all objects [N*(N+M)]
+%   -angle: angle between objects [1*N]
+%   -Phi: angle error gradient [2*N]
+%   -Psi: distance error gradient [2*N]
+%   -dVadP: obstacle avoidance function gradient [2*N] 
+%   -dVodP: orietantion function gradient [2*2]
+%   -phi: angle error [1*N]
+%   -psi: distance error [1*N]
+
 
 k_a = formationGains(1); % angle error gain
 k_v = formationGains(2); % distance error gain
@@ -73,23 +90,23 @@ psi = (dki - distanceRefki).^2;
 %obstacle avoidance
 dVadP  = avoidanceFunctionGradient(elementPos, N, M, d, r, R);
 
-formationError = zeros(2, N);
+formationControlOutput = zeros(2, N);
 
 if doOrientation
     %orientation control
     dVodP = orientationControl(positionRef, spheroPos );
     for i = 1:2
-        formationError(:, i) = -k_v*dVodP(:, i) - k_o*dVadP(:, i);
+        formationControlOutput(:, i) = -k_v*dVodP(:, i) - k_o*dVadP(:, i);
     end;
 else
     dVodP = zeros(2);
     for i = 1:2
-        formationError(:, i) = k_v*Psi(:, i) - k_o*dVadP(:, i);
+        formationControlOutput(:, i) = k_v*Psi(:, i) - k_o*dVadP(:, i);
     end;
 end;
 
 for i = 3: N
-    formationError(:, i) = k_a*Phi(:, i) + k_v*Psi(:, i) - k_o*dVadP(:, i);
+    formationControlOutput(:, i) = k_a*Phi(:, i) + k_v*Psi(:, i) - k_o*dVadP(:, i);
 end
 
 end

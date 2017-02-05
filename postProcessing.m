@@ -1,6 +1,6 @@
 clear;
 close all;
-load('jan20test6');
+load('PID31jan9');
 %% Load and remove zeros from the data
 
 logCounter = logCounter - 2;
@@ -66,6 +66,17 @@ logTiming = logTiming(1:logCounter, :);
 logTiming(:, 12) = sum(logTiming, 2); %delta_t for each step
 
 duration = cumsum(logTiming(:, 12));
+%% distribution of sampling times
+cycletime = logTiming(:, 12);
+meanCycle = mean(cycletime)
+histogram(cycletime, 100)
+title('Histogram on cycle time')
+hold on
+%print -deps epsFig
+trackingTime = logTiming(:, 1) + logTiming(:, 2);
+meanTracking = mean(trackingTime)
+histogram(trackingTime, 100);
+meanTracking/meanCycle
 
 %%
 x1 = logPosition(:, 1, 1);
@@ -75,7 +86,6 @@ x2 = logPosition(:, 1, 2);
 y2 = logPosition(:, 2, 2);
 
 u1 = logControlSpeed(:, 1);
-
 u2 = logControlSpeed(:, 2);
 
 ex1 = logAgentError(:, 1, 1);
@@ -97,6 +107,17 @@ controlAngle2 = logControlAngle(:, 2);
 
 de1 = logpsi(:, 1);
 de2 = logpsi(:, 2);
+
+%% PID Tunning
+figure('Name','agent position and target','NumberTitle','off')
+plot(x1, y1, 'r', x1(end), y1(end),'ro', positionRef(1,1), positionRef(2,1), 'r*');
+xlabel('x')
+ylabel('y')
+legend('agent1')
+title ('agent position and target');
+axis([0, 3.2, 0, 2.4]);
+set(gca, 'XAxisLocation','top');
+set(gca,'YDir','reverse');
 %%
 %figure(1);
 figure('Name','control effort','NumberTitle','off')
@@ -163,9 +184,9 @@ xlabel('x')
 ylabel('y')
 legend('agent1','', '', 'agent 2')
 title ('agent position and target');
-axis([0, 1200, 0, 1600]);
-set(gca, 'XAxisLocation','top');
-set(gca,'YDir','reverse');
+axis([0, 3.2, 0, 2.4]);
+% set(gca, 'XAxisLocation','top');
+% set(gca,'YDir','reverse');
 %view(90,90)
 
 %%

@@ -3,6 +3,12 @@ function [ signSi ] = signSi( iPosition, kPosition, jPosition  )
 %their caertesian coordinates, it returns 1 if the angles is in quadrants 1
 %or 2 and -1 if it is in quadrants 3 and 4. Useful for calculating the sign
 %of angles obtained by using acos, which is defined only on (0, 180)degrees
+%INPUT:
+% -iPosition [2*1]
+% -kPosition [2*1]
+% -jPosition [2*1]
+%OUTPUT
+% -signSi :-1, 0 or 1
 xi = iPosition(1);
 xk = kPosition(1);
 xj = jPosition(1);

@@ -2,13 +2,13 @@ function [ Phi ] = angleErrorGradient( angle, angleRef,...
                            iPosition, kPosition, jPosition)
 %ANGLEERRORGRADIENT Calculates the gradient of the formation angle error.
 %  INPUTS: 
-%- angle
-% - angleRef
-% - iPos
-% - kPos
-% -jPos
+%-angle: angle between agents
+%-angleRef : angle reference
+%-iPos :i position
+%-kPos: k position
+%-jPos: j position
 %OUTPUTS: 
-% - Phi [2*N]
+%-Phi: angle error gradient [2*N]
 
 xi = iPosition(1);
 xk = kPosition(1);

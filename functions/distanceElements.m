@@ -5,6 +5,8 @@ function [ d ] = distanceElements( elementPos, N, M )
 %matrix has zeros on the main diagonal 
 %   INPUTS:
 % -elementPos: the positions of the elements [2*(N+M)]
+% -N: number of agents
+% -M: number of obstacles
 % OUTPUTS:
 % -d: the distance matrix between agents and other elements [N*(N+M)]
 

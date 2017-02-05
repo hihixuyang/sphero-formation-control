@@ -1,7 +1,15 @@
 function [output, proportionalout, integralout, derivativeout ] = ...
     PIDAngleController( error, dt, PIDGains)
-%controller for the multi agent formation control. PID. Inputs should
-%controllerOutput is the speed for each Sphero
+%PID controller.
+%INPUT:
+% -error
+% -dt : time step
+% -PIDGains: [Kp Ki Kd]
+%OUTPUT:
+% -output: control output
+% -proportionalout
+% -integralout
+% -derivativeout
 persistent previousError integral ;
 if isempty(previousError)
     previousError = 0;

@@ -1,6 +1,6 @@
 function [centroid, filteredImage] = findSpheroCentroid(frame, threshold)
 %This function shall find all spheros in the given frame and return their
-%positions(P) and their number(n), their bounding box (BB)and 
+%positions(P) and their number(n), and 
 %a binar image(bw) obtained after tresholding. 
 %The parameter frame should be an image to get reasonable results, and
 %input parameter threshold should be [0..1], smaller means more sensitive
@@ -49,12 +49,12 @@ grayImage = rgb2gray(frame);
 binarImage = imbinarize(grayImage, threshold);
 %imwrite(bw, 'bw.png')
 % figure(2)
-% imshow(bw1);
+% imshow(binarImage);
 %pause();
 
 %%find spheros
 %Edge detection
-filteredImage = bwareafilt(binarImage, [650 1000]); 
+filteredImage = bwareafilt(binarImage, [500 1300]); 
 %min and max size for region to be detected
 % figure(3)
 %imshow(filteredImage);

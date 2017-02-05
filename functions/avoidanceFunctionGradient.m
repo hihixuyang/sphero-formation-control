@@ -3,6 +3,8 @@ function [ sumdVadP ] = avoidanceFunctionGradient( pos, N, M, d, r, R)
 %   Detailed explanation goes here
 %INPUTS:
 % pos: element positions [2*(N+M)]
+% N: number of agents
+% M: number of obstacles
 % d: distance between elements
 % r: protection radius
 % R: detection radius

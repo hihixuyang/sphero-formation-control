@@ -1,7 +1,8 @@
 %% Initialization and user input
+clc;
 delete (instrfindall); %delete all instruments
-clear all
-clc
+clear all;
+close all;
 disp('Starting...')
 spheros  = connectSpheros();
 
@@ -28,7 +29,7 @@ delta_t = 0.1;
 
 %formation control parameters
 k_a = 0; % angle error gain
-k_v = 0.05; % distance error gain
+k_v = 0.5; % distance error gain
 k_o = 0; % obstacle error gain
 formationGains = [k_a, k_v, k_o];
 
@@ -53,15 +54,17 @@ obstacles =  [ ];%(0.75 0.75)]'; %(1.25 1.25)]'./ meterPerPixel;
 M = size(obstacles, 2);
 
 %velocity reference tracking controller gains: Kp, Ki, Kd
-velocityKp = 0.003; velocityKi = 0; velocityKd = 0;
+velocityKp = 0.15; velocityKi = 0; velocityKd = 0;
 velocity_PID_gains = [velocityKp velocityKi velocityKd];
 
-angleKp = 0.6; angleKi = 0; angleKd = 0.000;
+angleKp = 1; angleKi = 0; angleKd = 0.5;
 angle_PID_gains =[angleKp angleKi angleKd];
 
 %initial value for threshold, smaller means more sensitive
 threshold = .67;
 spheroPos = zeros(2, N);
+movementThreshold = 0.02;
+saturation = 0.4;
 %% SWITCHES
 
 %Toggles whether or not to display the tracking results in Windowed Players
@@ -286,11 +289,12 @@ while true
     end
     t_display = toc;
     
-    %% formation control    
+    %% formation control
     tic
-    lastSpheroPos = spheroPos;
-    spheroPos = vertcat(tracks(:).centroid)';
-    displacement = spheroPos - lastSpheroPos;
+    %stack the positions in meters in a [2*N] matrix, as in the paper
+    spheroPos = vertcat(tracks(:).centroid)'*meterPerPixel;
+    %change direction of y axis and move x axis on the bottom
+    spheroPos = [spheroPos(1, :); (ones(1, N)*2.4-spheroPos(2, :))];
     
     [agentError, elementDistance, agentAngle, Phi, Psi, dVadP, dVodP, phi, psi] = ...
         formationController(spheroPos, obstacles, positionRef, angleRef,...
@@ -298,50 +302,44 @@ while true
     t_formation = toc;
     
     tic
-    desiredDirection = atan2d (agentError(2,:), agentError(1, :));
-    actualDirection = atan2d (displacement(2,:), displacement(1,:));
-    agentAngleError = desiredDirection - actualDirection;
-    [controlAngle, pAngleOut, iAngleOut, dAngleOut] = PIDAngleController(...
-        agentAngleError, delta_t, angle_PID_gains);
-    %controlAngle = arrayfun(@(angle) (wrapTo360(angle)), controlAngle);
+    controlAngle = calculateAngle(spheroPos, agentError, movementThreshold);
     t_direction = toc;
     
     tic
     %PID Controller used to track the reference velocity input
     [controlVelocity, pVelocityOut, iVelocityOut, dVelocityOut] =...
-        PIDVelocityController(agentError, delta_t, velocity_PID_gains);
+        PIDVelocityController(agentError, delta_t, velocity_PID_gains, saturation);
     t_controller = toc;
     %% communication
     tic
     %send the roll command
     controlSpeed = hypot(controlVelocity(1, :), controlVelocity(2, :));
-    if logCounter > 2
-        for i = 1:N
-            tracks(i).Sphero.Roll(controlSpeed(i), controlAngle(i), 'normal');
-        end
+    for i = 1:N
+        tracks(i).Sphero.Roll(controlSpeed(i), controlAngle(i), 'fast');
     end
+    
     t_comm = toc;
     
     tic
     logCounter = logCounter + 1;
     
-%     logImages{mod(logCounter, MAX_LOG)} = frame;
+    %     logImages{mod(logCounter, MAX_LOG)} = frame;
     logNumDetections(mod(logCounter, MAX_LOG)) = numberOfDetections;
     logPosition( mod(logCounter, MAX_LOG), :, :) = spheroPos;
     logDistance(mod(logCounter, MAX_LOG), :, :) = elementDistance;
-    logAgentAngle(mod(logCounter, MAX_LOG), :) = agentAngle;    
+    logAgentAngle(mod(logCounter, MAX_LOG), :) = agentAngle;
     
     logAgentError(mod(logCounter, MAX_LOG), :, :) = agentError;
-    logPhi(mod(logCounter, MAX_LOG), :, :) = Phi;    
+    logPhi(mod(logCounter, MAX_LOG), :, :) = Phi;
     logPsi(mod(logCounter, MAX_LOG), :, :) = Psi;
     logphi(mod(logCounter, MAX_LOG), :) = phi;
     logpsi(mod(logCounter, MAX_LOG), :) = psi';
     logdVadP(mod(logCounter, MAX_LOG), :, :) = dVadP;
     logdVodP(mod(logCounter, MAX_LOG), :, :) = dVodP;
-
+    
     logPVelocity(mod(logCounter, MAX_LOG), :, :) = pVelocityOut;
     logIVelocity(mod(logCounter, MAX_LOG), :, :) = iVelocityOut;
-    logDVelocity(mod(logCounter, MAX_LOG), :, :) = dVelocityOut; 
+    logDVelocity(mod(logCounter, MAX_LOG), :, :) = dVelocityOut;
     logControlVelocity(mod(logCounter, MAX_LOG), :, :) = controlVelocity;
     logControlSpeed(mod(logCounter, MAX_LOG), :) = controlSpeed;
     
@@ -361,3 +359,5 @@ while true
     delta_t = sum(timings);     %calculate complete time needed for a whole cycle
     
 end
+%%
+stop(obj.cam);
