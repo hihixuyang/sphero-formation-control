@@ -5,7 +5,6 @@ function [association, success] = associateSpheros(spheros, spheroPos, cam)
 %rather different value. This change shall expose which tracked robot
 %belongs to the bluetooth connection which issued the change color command
 
-%TODO add robustness through checking the arguments to this function
 
 %turn off RGB LED for all Spheros for better contrast 
 numberSpheros = length(spheros);
@@ -23,6 +22,7 @@ for i = 1:numberSpheros
         
         %take reference snapshot    
         ref_frame = getsnapshot(cam);
+        pause(0.1);
 %       %frame = insertObjectAnnotation(ref_frame, 'rectangle', [sphero_positions, [40 40 ; 40 40]], [1 2]);
 %       imshow(frame);
 %       title(['ref frame for sphero i=', num2str(i)])
@@ -34,6 +34,7 @@ for i = 1:numberSpheros
         
         %take second snapshot for comparison
         sec_frame = getsnapshot(cam);
+        pause(0.1);
 %       %frame = insertObjectAnnotation(sec_frame, 'rectangle', [sphero_positions, [40 40 ; 40 40]], [1 2]);
 %       imshow(frame);
 %       title(['sec frame for sphero i=', num2str(i)])

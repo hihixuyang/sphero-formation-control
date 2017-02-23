@@ -1,24 +1,34 @@
-function [controlAngle] = calculateAngle(spheroPos, agentError, movementThreshold)
-persistent lastSpheroPos lastControlAngle;
-if isempty(lastSpheroPos)
-    lastSpheroPos = 0;
+function [controlHeading, desiredHeading, actualHeading] =...
+    calculateAngle(spheroPos, formationVelocity, movementThreshold)
+%CALCULATEANGLE calculates the angles of the agents
+%INPUT:
+%-spheroPos [2*N]
+%-desiredHeading [1*N]
+%-movementThreshold 
+%OUTPUT:
+%-controlHeading [1*N] :considers the offset of the Sphero
+%-actualHeading [1*N] :the direction in which the Sphero moves
+
+persistent lastControlHeading;
+if isempty(lastControlHeading)
+    lastControlHeading = 0;    
 end
 
-displacement = spheroPos - lastSpheroPos;
-movement = sqrt(sum(displacement.^2, 1));
-hasMoved = movement > movementThreshold; 
-displacement = displacement.*hasMoved;
-lastSpheroPos = spheroPos.*hasMoved + lastSpheroPos.*~hasMoved;
-
-desiredDirection = atan2d (agentError(2,:), agentError(1, :));
-actualDirection = atan2d (displacement(2,:), displacement(1,:));
-agentAngleError = actualDirection - desiredDirection;
-
-if isempty(lastControlAngle)
-    lastControlAngle = 0;    
-    hasMoved = zeros(1, size(spheroPos, 2));
+persistent lastActualHeading;
+if isempty(lastActualHeading)
+    lastActualHeading = 0;    
 end
-controlAngle = lastControlAngle - agentAngleError.*hasMoved;
-controlAngle = wrapTo360(controlAngle);
-lastControlAngle = controlAngle;
+
+[displacement, hasMoved] = detectMovement(spheroPos, movementThreshold);
+desiredHeading = atan2d (formationVelocity(2,:), formationVelocity(1,:));
+heading = atan2d (displacement(2,:), displacement(1,:));
+actualHeading = heading.*hasMoved + lastActualHeading.*~hasMoved;
+headingError = desiredHeading - actualHeading;
+
+controlHeading = lastControlHeading + headingError.*hasMoved;
+%controlHeading = lastControlHeading + headingError;
+controlHeading = wrapTo360(controlHeading);
+
+lastControlHeading = controlHeading;
+lastActualHeading = actualHeading;
 end

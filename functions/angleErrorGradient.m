@@ -1,27 +1,37 @@
-function [ Phi ] = angleErrorGradient( angle, angleRef,...
-                           iPosition, kPosition, jPosition)
+function [ phi, Phi ] = angleErrorGradient(angleRef, iPosition, kPosition, jPosition)
 %ANGLEERRORGRADIENT Calculates the gradient of the formation angle error.
-%  INPUTS: 
-%-angle: angle between agents
-%-angleRef : angle reference
-%-iPos :i position
-%-kPos: k position
-%-jPos: j position
-%OUTPUTS: 
-%-Phi: angle error gradient [2*N]
+% it uses the anti-trigonometric angle convention (left-hand rule)
+%  INPUTS:
+% angleRef : angle reference in degrees [-180, 180]
+% iPos: i position
+% kPos: k position
+% jPos: j position
+%OUTPUTS:
+% phi: angle error [1*N]
+% Phi: angle error gradient [2*N]
 
 xi = iPosition(1);
 xk = kPosition(1);
-xj = jPosition(1);
 
 yi = iPosition(2);
 yk = kPosition(2);
-yj = jPosition(2);
-
-angleError = (angle - angleRef)*signSi(iPosition, kPosition, jPosition);
 
 dki = norm(iPosition - kPosition);
-Phi = [-(yi-yk); (xi-xk)]*angleError/dki^2;
+dkj = norm(jPosition - kPosition);
+dji = norm(iPosition - jPosition);
 
+angle = anglePythagora(dki, dkj, dji);
+angle = angle * signSi(iPosition, kPosition, jPosition);
+
+phi = angle - angleRef;
+if phi < -180
+   phi = 360+phi; 
+end
+if phi > 180
+   phi = phi-360; 
+end
+%phi = phi;
+Phi = phi/180)*[-(yi-yk); (xi-xk)]/dki;
+phi = phi^2;
 end
 

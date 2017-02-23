@@ -10,345 +10,255 @@ spheros  = connectSpheros();
 disp('Initializing constants...')
 
 N = length(spheros); %number of robots
-
-%the communication laplacian:
-%Create a symmetric adjacency matrix, A, that creates a complete
-%graph of order N.
-% A = ones(N) - eye(N);
-% G = graph(A);
-% L = full(G.laplacian);
-
 meterPerPixel = 2e-3; %transfer from pixel to meters
 
 %the detection and avoidance region
-R = 0.2 / meterPerPixel;
-r = 0.05 / meterPerPixel;
+R = 0.3;
+r = 0.1;
 
 %timesteps, just initial value
 delta_t = 0.1;
 
 %formation control parameters
-k_a = 0; % angle error gain
-k_v = 0.5; % distance error gain
-k_o = 0; % obstacle error gain
-formationGains = [k_a, k_v, k_o];
+k_d = 0.5; % distance error gain
+k_a = 0.5; % angle error gain
+k_oa = 0; % obstacle avoidance 
+k_o = 0; %orientation
+k_r = 0; %reference tracking
+
+beta = 45;
+Vr = [cosd(beta); sind(beta)];
+formationGains = [k_d, k_a, k_oa, k_o, k_r];
+%PID tuning
+Kp = 0.3; Ki = 0; Kd = 0;
+PIDgains = [Kp Ki Kd];
+saturation = 0.1;
+flag = 'fast';
 
 %position reference for each agent [2*N]
-switch N
-    case 1
-        positionRef = [1 1]'/ meterPerPixel;
-    case 2
-        positionRef = [[1 1]; [0.9 0.9]]'/ meterPerPixel;
-    case 3
-        positionRef = [[0 0]; [0.5 0.5]; [1 1]]'/ meterPerPixel;
-    case 4
-        positionRef = [[0 0]; [0.5 0.5]; [1 1]; [1.5 1.5]]'/ meterPerPixel;
-end
+p1 = [1;1];
+p2 = [2;2];
+positionRef = [p1, p2];
+distanceRef = [NaN NaN NaN];
 
-%angle reference for agents [1*N]
-angleRef = zeros(1, N);
-angleRef(angleRef == 0) = NaN;
+%angle reference for agents [1*N], NaN for no reference for that agent
+angleRef = [60 60 60];
 
 %static obstacles to prove collision avoidance [2*M]
-obstacles =  [ ];%(0.75 0.75)]'; %(1.25 1.25)]'./ meterPerPixel;
+obstacles =  [ ];
+obstacles = horzcat(obstacles,[0 0; 3.2 2.4]'); 
 M = size(obstacles, 2);
 
-%velocity reference tracking controller gains: Kp, Ki, Kd
-velocityKp = 0.15; velocityKi = 0; velocityKd = 0;
-velocity_PID_gains = [velocityKp velocityKi velocityKd];
-
-angleKp = 1; angleKi = 0; angleKd = 0.5;
-angle_PID_gains =[angleKp angleKi angleKd];
-
 %initial value for threshold, smaller means more sensitive
-threshold = .67;
-spheroPos = zeros(2, N);
-movementThreshold = 0.02;
-saturation = 0.4;
-%% SWITCHES
+movementThreshold = 0.15;
+angleOffset = true;
+if angleOffset
+    training = true;
+    agent = 1;
+    offset = zeros(1, N);
+end
+trainingSpeed = 0.05;
 
+%% SWITCHES
 %Toggles whether or not to display the tracking results in Windowed Players
 doDisplay = false;
-
-%toggles between spherodetection using foreground detection and the
-%detection using a threshold and an areafilter
-doForegroundSubtraction = false;
-
-%switches between a webcam input and a recorded input
-isWebcam = true;
-
-%toggles formation orientation control
-doOrientation = false;
 
 %% VIDEO INITIALIZATIONS FOR TRACKING
 imaqreset;
 %camera used. Normally the index >>1<< refers to the USB-Camera
-obj.cam = videoinput('winvideo', 2, 'BYRG_1600x1200');
-obj.cam.FramesPerTrigger = 1;
+camera = videoinput('winvideo', 2, 'BYRG_1600x1200');
+camera.FramesPerTrigger = 1;
 % Configure the object for manual trigger mode.
-triggerconfig(obj.cam, 'manual');
-obj.cam.LoggingMode = 'memory';
+triggerconfig(camera, 'manual');
+camera.LoggingMode = 'memory';
+start(camera);
+%% VIDEO OFFSET
+%o-->x   ^y
+%|       |
+%y   to  o-->x
+resolution = camera.VideoResolution;
 
-% vid.LoggingMode = 'disk&memory';
-% diskLogger = VideoWriter('C:\Users\mihai\Dropbox\Uni TUHH\Sem 3\Project\doc\images and videos\test_0001.avi', 'Motion JPEG AVI');
-% vid.DiskLogger = diskLogger;
-% diskLogger.FrameRate = 30;
-% diskLogger.Quality = 60;
-
-% Now that the device is configured for manual triggering, call START.
-% This will cause the device to send data back to MATLAB, but will not log
-% frames to memory at this point.
-start(obj.cam);
-
-% %Player for the video and the mask
-% obj.videoPlayer = vision.VideoPlayer('Position', [20, 400, 700, 400]);
-% obj.maskPlayer = vision.VideoPlayer('Position', [740, 400, 700, 400]);
-if doForegroundSubtraction
-    %initialize a Forground detector to substract the foreground (moving
-    %objects) from the background. The output is a binary mask.
-    obj.detector = vision.ForegroundDetector('NumGaussians', 3,...
-        'NumTrainingFrames', 40,...
-        'MinimumBackgroundRatio', 0.7);
-    
-    %Initialize a Blobanalyzer to find groups of ON-pixels which very likely
-    %refer to a moving object. The Analyzer calculates their characteristics
-    obj.blobAnalyser = vision.BlobAnalysis('BoundingBoxOutputPort', true,...
-        'AreaOutputPort', true,...
-        'CentroidOutputPort', true,...
-        'MinimumBlobArea', 400);
-end
+xRange = resolution(1)*meterPerPixel;
+yRange = resolution(2)*meterPerPixel;
+scaleMatrix = [xRange; yRange];
 
 %% DATALOGGING INITIALIZATIONS
 disp('Initializing logging variables...')
-%timings of the individual processes
-% 1: time needed for acquiring an image
-% 2: time needed for detecting spheros inside this image
-% 3: time needed for the prediction of future positions
-% 4: time needed to assign current detections to existing tracks
-% 5: time needed to update the tracks with the current positions
-% 6: time needed to display the detections if enabled
-% 7: time needed to calculate the reference velocity value for each Sphero
-% using the formation control law
-% 8: time needed to calculate actual direction
-% 9: time needed to evaluate the output of the "local" controller
-%10: time needed to log relevant data
-%11: time needed to send the results to the individual units
-%
 timings = zeros(1, 11);
+MAX_LOG = 2500;%maximum size of buffers
+logCounter = 1;%current write index
 
-%maximum size of buffers
-MAX_LOG = 2500;
-
-%current write index
-logCounter = 1;
-
-logImages = cell(MAX_LOG, 1);
 logNumDetections = zeros(MAX_LOG, 1);
 logPosition = zeros(MAX_LOG, 2, N);
-logDistance = zeros(MAX_LOG, N, N+M);
-logAgentAngle = zeros(MAX_LOG, N) ;
-
-logAgentError = zeros(MAX_LOG, 2, N);
-logPhi = zeros(MAX_LOG, 2, N);
-logPsi = zeros(MAX_LOG, 2, N) ;
-logphi = zeros(MAX_LOG, N);
-logpsi = zeros(MAX_LOG, N);
-logdVadP = zeros( MAX_LOG, 2, N);
-logdVodP = zeros( MAX_LOG, 2, N);
 
 logControlVelocity = zeros(MAX_LOG, 2, N);
-logPVelocity = zeros(MAX_LOG, 2, N);
-logIVelocity = zeros(MAX_LOG, 2, N);
-logDVelocity = zeros(MAX_LOG, 2, N);
-logControlSpeed = zeros(MAX_LOG, N);
+logphi = zeros(MAX_LOG, N);
+logpsi = zeros(MAX_LOG, N);
+logVo = zeros(MAX_LOG, 2);
+logVa = zeros(MAX_LOG, N);
+logPhi = zeros(MAX_LOG, 2, N);
+logPsi = zeros(MAX_LOG, 2, N) ;
+logdVadP = zeros(MAX_LOG, 2, N);
+logdVodP = zeros(MAX_LOG, 2, N);
 
-logControlAngle = zeros(MAX_LOG, N);
-logDesiredDirection = zeros(MAX_LOG, N);
-logActualDirection = zeros(MAX_LOG, N);
-logPAngleOut = zeros(MAX_LOG, N);
-logIAngleOut = zeros(MAX_LOG, N);
-logDAngleOut = zeros(MAX_LOG, N);
+logAgentVelocity = zeros(MAX_LOG, 2, N);
+logAgentSpeed = zeros(MAX_LOG, N);
+
+logAgentHeading = zeros(MAX_LOG, N);
+logDesiredHeading = zeros(MAX_LOG, N);
+logActualHeading = zeros(MAX_LOG, N);
 
 logTiming = zeros(MAX_LOG, 11);
 
 %% Initial detection and association
 disp('Initial detection...');
-frame = nextFrame(obj.cam, isWebcam);
-%to avoid false recognitions
-[centroids, mask] = findSpheroCentroid(frame, threshold);
-numberOfDetections = size(centroids, 1);
+frame = getsnapshot(camera);
+[centroids, ~] = findSpheroCentroid(frame);
 
-while numberOfDetections < N
-    %imshow(mask);
-    threshold = threshold -.01; %makes it more sensitive
-    disp('Attempting initial detection, searching for Spheros, decreasing threshold');
-    frame = nextFrame(obj.cam, isWebcam);
-    [centroids, mask] = findSpheroCentroid(frame, threshold);
-    numberOfDetections = size(centroids, 1);
-    % pause();
-end
-threshold = threshold - 0.01;
-
-% associate hardware with tracking
+%% associate hardware with tracking
 success = false;
 while ~success
     disp('Associate Spheros...');
-    [association, success] = associateSpheros(spheros, centroids, obj.cam);
+    [association, success] = associateSpheros(spheros, centroids, camera);
     if ~success
         disp('Could not associate bluetooth object with spheros')
         continue
     end
 end
 
-% create Tracks for tracking
+%% create tracks
 tracks = createTracks(association, centroids, spheros);
 
-for i = 1:length(tracks)
+for i = 1:length(tracks) %set the color of the spheros
     tracks(i).Sphero.SetRGBLEDOutput([1 1 1], false);
 end
 
 %% tracking loop
-disp(' Tracking loop...')
+disp('Tracking loop...')
 
 while true
+    %% Image processing
     tic
-    frame = nextFrame(obj.cam, isWebcam);
+    frame = getsnapshot(camera);
     t_capture = toc;
     
     tic
     %detecting the spheros in the image
-    if doForegroundSubtraction
-        %calculate foreground mask. mask is a binary image.
-        %this routine is normally turned off in favour of the thresholding
-        %approach which has better performance if the SPheros do not move or
-        %only move very little
-        
-        mask = obj.detector.step(frame);
-        
-        % Apply morphological operations to remove noise and fill in holes.
-        mask = imopen(mask, strel('rectangle', [3,3]));
-        mask = imclose(mask, strel('rectangle', [15, 15]));
-        mask = imfill(mask, 'holes');
-        
-        %Perform blobanalysis on binary image and find connected components.
-        %centroids shold contain the centroid of every detected object and
-        %bboxes should contain the bounding boxes around these objects.
-        [~, centroids, bboxes] = obj.blobAnalyser.step(mask);
+    [centroids, ~] = findSpheroCentroid(frame); 
+    numberOfDetections = size(centroids, 1);    
+    %error messages if the detections do not comply with the number of robots    
+    if numberOfDetections > N
+        disp('Too many detections')
     else
-        %the second option is the one described in the report. Here the main
-        %principle relies on extracting bright objects of the correct size
-        %finding Spheros in an image
-        [centroids, mask] = findSpheroCentroid(frame, threshold);
-    end
-    numberOfDetections = size(centroids, 1);
-    
-    %error messages if the detections do not comply with the number of robots
-    if numberOfDetections == 0
-        disp('No agents detected');
-    else
-        if numberOfDetections > N
-            disp('Too many detections')
-        else
-            if numberOfDetections < N
-                disp('Not enough detections')
-            end
+        if numberOfDetections < N
+            disp('Not enough detections')
         end
-    end
+    end    
     t_find = toc;
     
-    tic
-    %predict the locations of the robots
-    for i = 1:length(tracks)
+    tic    
+    for i = 1:length(tracks) %predict the locations of the robots
         predict(tracks(i).kalmanFilter);
     end
     t_predict = toc;
     
-    tic
-    %assign detections to best fitting tracks
-    matches = assignTracks(tracks, centroids);
+    tic    
+    matches = assignTracks(tracks, centroids);%assign detections tracks
     t_assign = toc;
     
     tic;
     for i = 1:size(matches, 1)
         trackIndex = matches(i, 1);
-        detectionIndex = matches(i, 2);
-        
-        %correct the prediction with the measurement
-        correct(tracks(trackIndex).kalmanFilter, centroids(detectionIndex, :));
-        
+        detectionIndex = matches(i, 2);        
+        %???correct the prediction with the measurement
+        correct(tracks(trackIndex).kalmanFilter, centroids(detectionIndex, :));        
         %replace prediction with measurement
-        tracks(trackIndex).centroid = centroids(detectionIndex, :);
-        
-    end
+        tracks(trackIndex).centroid = centroids(detectionIndex, :);        
+    end    
+    spheroPos = vertcat(tracks(:).centroid)'*meterPerPixel;%transf to meters
+    spheroPos(2, :) =  yRange -  spheroPos(2, :); %tranform to RHCS
     t_update = toc;
     
-    tic;
-    %Display the results of detection
-    if doDisplay
+    tic;    
+    if doDisplay %Display the results of detection
         image(frame);
     end
     t_display = toc;
-    
-    %% formation control
+
+    %% Formation control
     tic
-    %stack the positions in meters in a [2*N] matrix, as in the paper
-    spheroPos = vertcat(tracks(:).centroid)'*meterPerPixel;
-    %change direction of y axis and move x axis on the bottom
-    spheroPos = [spheroPos(1, :); (ones(1, N)*2.4-spheroPos(2, :))];
-    
-    [agentError, elementDistance, agentAngle, Phi, Psi, dVadP, dVodP, phi, psi] = ...
-        formationController(spheroPos, obstacles, positionRef, angleRef,...
-        r, R, formationGains, doOrientation);
+    if agent > N
+        training = false;
+    end
+    if training
+        u = zeros(2, N);
+        agentVelocity = zeros(2, N);        
+        agentVelocity(:, agent) = [trainingSpeed; 0];
+        [displacement, hasMoved] = detectMovement(spheroPos(:,agent), movementThreshold);
+        if hasMoved
+            agentVelocity(:, agent) = [0; 0];
+            offset(agent) = atan2d (displacement(2,:), displacement(1,:));
+            agent = agent + 1;
+            clear detectMovement;
+        end
+    else
+        [u, Phi, Psi, Va, dVadP, Vo, dVodP, phi, psi] = ...
+            formationController(spheroPos, obstacles, distanceRef, positionRef, angleRef, Vr,...
+            r, R, formationGains, scaleMatrix);
+    end
     t_formation = toc;
     
-    tic
-    controlAngle = calculateAngle(spheroPos, agentError, movementThreshold);
-    t_direction = toc;
     
     tic
-    %PID Controller used to track the reference velocity input
-    [controlVelocity, pVelocityOut, iVelocityOut, dVelocityOut] =...
-        PIDVelocityController(agentError, delta_t, velocity_PID_gains, saturation);
-    t_controller = toc;
-    %% communication
-    tic
-    %send the roll command
-    controlSpeed = hypot(controlVelocity(1, :), controlVelocity(2, :));
-    for i = 1:N
-        tracks(i).Sphero.Roll(controlSpeed(i), controlAngle(i), 'fast');
+    if angleOffset
+        desiredHeading = atan2d (u(2,:), u(1,:));
+        agentHeading = desiredHeading - offset;
+    else
+    [agentHeading, desiredHeading, actualHeading] =...
+        calculateAngle(spheroPos, u, movementThreshold);
     end
     
+    if training
+    else
+        [agentVelocity, ~, ~, ~] = PIDController(u, delta_t, PIDgains);
+    end
+    agentSpeed = hypot(agentVelocity(1, :), agentVelocity(2, :));
+    agentSpeed = min(saturation, agentSpeed);
+    t_controller = toc;
+    
+
+    %% communication
+    tic
+    %send the roll command    
+    for i = 1:N
+        tracks(i).Sphero.Roll(agentSpeed(i), agentHeading(i), flag);
+    end        
     t_comm = toc;
     
+    %%
     tic
     logCounter = logCounter + 1;
     
-    %     logImages{mod(logCounter, MAX_LOG)} = frame;
     logNumDetections(mod(logCounter, MAX_LOG)) = numberOfDetections;
     logPosition( mod(logCounter, MAX_LOG), :, :) = spheroPos;
-    logDistance(mod(logCounter, MAX_LOG), :, :) = elementDistance;
-    logAgentAngle(mod(logCounter, MAX_LOG), :) = agentAngle;
+
     
-    logAgentError(mod(logCounter, MAX_LOG), :, :) = agentError;
+    logControlVelocity(mod(logCounter, MAX_LOG), :, :) = u;
+    logphi(mod(logCounter, MAX_LOG), :) = phi;
+    logpsi(mod(logCounter, MAX_LOG), :) = psi;
+    logVo(mod(logCounter, MAX_LOG), :) = Vo;
+    logVa(mod(logCounter, MAX_LOG), :) = Va;
     logPhi(mod(logCounter, MAX_LOG), :, :) = Phi;
     logPsi(mod(logCounter, MAX_LOG), :, :) = Psi;
-    logphi(mod(logCounter, MAX_LOG), :) = phi;
-    logpsi(mod(logCounter, MAX_LOG), :) = psi';
     logdVadP(mod(logCounter, MAX_LOG), :, :) = dVadP;
-    logdVodP(mod(logCounter, MAX_LOG), :, :) = dVodP;
+    logdVodP(mod(logCounter, MAX_LOG), :, :) = dVodP;    
+
+    logAgentVelocity(mod(logCounter, MAX_LOG), :, :) = agentVelocity;
+    logAgentSpeed(mod(logCounter, MAX_LOG), :) = agentSpeed;
     
-    logPVelocity(mod(logCounter, MAX_LOG), :, :) = pVelocityOut;
-    logIVelocity(mod(logCounter, MAX_LOG), :, :) = iVelocityOut;
-    logDVelocity(mod(logCounter, MAX_LOG), :, :) = dVelocityOut;
-    logControlVelocity(mod(logCounter, MAX_LOG), :, :) = controlVelocity;
-    logControlSpeed(mod(logCounter, MAX_LOG), :) = controlSpeed;
-    
-    logDesiredDirection(mod(logCounter, MAX_LOG), :) = desiredDirection;
-    logActualDirection(mod(logCounter, MAX_LOG), :) = actualDirection;
-    logPAngleOut(mod(logCounter, MAX_LOG), :) = pAngleOut;
-    logIAngleOut(mod(logCounter, MAX_LOG), :) = iAngleOut;
-    logDAngleOut(mod(logCounter, MAX_LOG), :) = dAngleOut;
-    logControlAngle(mod(logCounter, MAX_LOG), :) = controlAngle();
+    logDesiredHeading(mod(logCounter, MAX_LOG), :) = desiredDirection;
+    logActualHeading(mod(logCounter, MAX_LOG), :) = actualDirection;
+    logAgentHeading(mod(logCounter, MAX_LOG), :) = agentHeading;
     
     logTiming(mod(logCounter, MAX_LOG)-1, :) = timings;
     
@@ -360,4 +270,4 @@ while true
     
 end
 %%
-stop(obj.cam);
+stop(camera);
