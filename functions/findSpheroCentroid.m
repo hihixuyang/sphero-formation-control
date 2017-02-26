@@ -13,7 +13,7 @@ grayImage = rgb2gray(frame);
 %% Standard Thresholding
 
 %Binarize image by thresholding, smaller threshold =>more sensitive
-binarImage = imbinarize(grayImage, 0.35);
+binarImage = imbinarize(grayImage, 0.1);
 %figure(2); imshow(binarImage); pause();
 
 %Extracts all connected components in the image within the area range

@@ -31,7 +31,7 @@ if phi > 180
    phi = phi-360; 
 end
 %phi = phi;
-Phi = phi/180)*[-(yi-yk); (xi-xk)]/dki;
-phi = phi^2;
+Phi = phi/180*[-(yi-yk); (xi-xk)]/dki;
+% phi = phi^2;
 end
 

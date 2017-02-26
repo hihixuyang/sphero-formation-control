@@ -14,6 +14,6 @@ scaling = norm(scaleMatrix);
 psi = dki-distanceRef;
 
 Psi = -psi/scaling*(iPos - kPos)/dki;
-psi = psi^2;
+% psi = psi^2;
 end
 

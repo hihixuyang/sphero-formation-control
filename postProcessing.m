@@ -1,6 +1,6 @@
 clear;
 close all;
-load('PID31jan9');
+load('formation02_24_23');
 %% Load and remove zeros from the data
 logCounter = logCounter - 2;
 %eliminate the first row which is 0
@@ -51,6 +51,11 @@ logTiming = logTiming(1:logCounter, :);
 logTiming(:, 12) = sum(logTiming, 2); %delta_t for each step
 
 duration = cumsum(logTiming(:, 12));
+
+%% display
+formationGains
+distanceRef
+angleRef
 %% distribution of sampling times
 cycletime = logTiming(:, 12);
 meanCycle = mean(cycletime)
@@ -68,12 +73,18 @@ figure('Name','agent position','NumberTitle','off')
 hold on
 for i = 1 : N
     h(i, 1) = plot(logPosition(:, 1, i), logPosition(:, 2, i), '-');
+end
+for i = 1 : N
     h(i, 2) = plot(logPosition(1, 1, i), logPosition(1, 2, i), 'Marker','o','Color',h(i, 1).Color);
+end
+for i = 1 : N
     h(i, 3) = plot(logPosition(end, 1, i), logPosition(end, 2, i), 'Marker','*','Color',h(i, 1).Color);
 end
-n = 10;
-radius = linspace(r, R, n);
-viscircles(obstaclePos'.* ones(n,2),radius,'Color','k','LineWidth', 0.5, 'LineStyle', ':');
+if ~isempty(obstacles)
+    n = 10;
+    radius = linspace(r, R, n);
+    viscircles(obstacles'.* ones(n,2),radius,'Color','k','LineWidth', 0.5, 'LineStyle', ':');
+end
 hold off
 Legend=cell(N,1);
 for iter=1:N
@@ -84,47 +95,103 @@ legend(h(:,1), Legend)
 xlabel('x')
 ylabel('y')
 title ('agent position');
-axis([0, 3.2, 0, 2.4]);
-set(gca, 'XAxisLocation','top');
-set(gca,'YDir','reverse');
+grid on
+axis equal;
+axis([0, xRange, 0, yRange]);
+% set(gca, 'XAxisLocation','top');
+% set(gca,'YDir','reverse');
 %%
 %figure(1);
 figure('Name','errors','NumberTitle','off')
+
 ax1 = subplot(4,1,1);
 ax2 = subplot(4,1,2);
 ax3 = subplot(4,1,3);
 ax4 = subplot(4,1,4);
 
-hold on
+hold(ax1, 'on')
 for i = 1 : N
     h(i) = plot(ax1, duration, logphi(:, i), '-');
+    
 end
-hold off
+hold(ax1, 'off');
 title(ax1,'phi');
+grid (ax1, 'on');
 
-hold on
+hold(ax2, 'on')
 for i = 1 : N
     h(i) = plot(ax2, duration, logpsi(:, i), '-');
 end
-hold off
+hold(ax2, 'off');
 title(ax2,'psi');
+grid (ax2, 'on');
 
-hold on
-for i = 1 : N
+hold(ax3, 'on')
+for i = 1 : 2
     h(i) = plot(ax3, duration, logVo(:, i), '-');
 end
-hold off
+hold(ax3, 'off')
 title(ax3,'Vo');
+grid (ax3, 'on');
 
-hold on
+hold(ax4, 'on')
 for i = 1 : N
     h(i) = plot(ax4, duration, logVa(:, i), '-');
 end
-hold off
+hold(ax4, 'off')
 title(ax4,'Va');
+grid (ax4, 'on');
 
 Legend = cell(N,1);
 for iter = 1:N
     Legend{iter} = strcat('agent ', num2str(iter));
 end
 legend(ax1, Legend)
+
+%%
+figure
+for i = 1 : N
+    hold on
+    h(i) = plot(duration, logAgentSpeed(:, i), '-');
+end
+
+Legend = cell(N,1);
+for iter = 1:N
+    Legend{iter} = strcat('agent ', num2str(iter));
+end
+grid on
+legend(Legend)
+title('agent speed')
+
+%%
+figure
+for i = 1 : N
+    hold on
+    h(i) = plot(duration, logAgentHeading(:, i), '-');
+end
+
+Legend = cell(N,1);
+for iter = 1:N
+    Legend{iter} = strcat('agent ', num2str(iter));
+end
+grid on
+legend(Legend)
+title('agent angle')
+
+%%
+figure
+ax1 = subplot(3,1,1);
+ax2 = subplot(3,1,2);
+ax3 = subplot(3,1,3);
+plot(ax1,duration, logPosition(:, 1, 1), duration, logPosition(:, 2, 1))
+title(ax1,'agent 1')
+plot(ax2,duration, logPosition(:, 1, 2), duration, logPosition(:, 2, 2))
+title(ax2,'agent 2')
+plot(ax3,duration, logPosition(:, 1, 3), duration, logPosition(:, 2, 3))
+title(ax3,'agent 3')
+grid on
+legend('x', 'y')
+xlabel('time')
+ylabel('distance')
+%%
+tilefigs

@@ -1,8 +1,8 @@
 positionRef = [5 5; 0 0]';
 
-spheroPos = [2 -2; 2 0]';
+spheroPos = [2 2; -1 -1]';
 
-[ dVodP ] = orientationControl(positionRef, spheroPos )
+[ Vo, dVodP ] = orientationControl(positionRef, spheroPos )
 
 plot (positionRef(1,1), positionRef(2,1), '*', positionRef(1,2),  positionRef(2,2), '*',...
     spheroPos(1,1), spheroPos(2,1), 'o', spheroPos(1,2),  spheroPos(2,2), 'o')

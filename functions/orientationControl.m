@@ -36,6 +36,6 @@ dVodP1 = Vo/180*[(y1-y2); -(x1-x2)]/d12;
 
 dVodP2 = -dVodP1;
 dVodP = [dVodP1 dVodP2];
-Vo = Vo^2;
+% Vo = Vo^2;
 end
 
